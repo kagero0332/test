@@ -1,0 +1,46 @@
+from PyLTSpice import SimRunner, SpiceEditor, RawRead
+import matplotlib.pyplot as plt
+import os
+
+# シミュレーションを実行する.ascファイルのリスト
+asc_files = ["circuit1.asc", "circuit2.asc", "circuit3.asc"]
+
+# 結果を保存するフォルダ
+output_folder = './simulation_results'
+
+# SimRunnerインスタンスの設定
+runner = SimRunner(output_folder=output_folder, simulator='LTspice', parallel_sims=4)
+
+# 各.ascファイルに対してシミュレーションを実行
+for file in asc_files:
+    netlist = SpiceEditor(file)  # SpiceEditorで.ascファイルを読み込む
+    # シミュレーションの設定を行う
+    netlist.add_instructions("; Simulation settings", ".tran 1m")  # 例: トランジェント解析
+    # シミュレーション実行
+    run_netlist_file = os.path.join(output_folder, os.path.basename(file) + ".net")
+    runner.run(netlist, run_filename=run_netlist_file)
+
+# シミュレーションの完了を待つ
+runner.wait_completion()
+
+# 結果のプロット
+for file in asc_files:
+    raw_file = os.path.join(output_folder, os.path.basename(file) + ".raw")
+    raw = RawRead(raw_file)  # .rawファイルを読み込む
+
+    # トレース名の取得とデータの読み込み
+    trace_names = raw.get_trace_names()
+    xdata = raw.get_axis()  # X軸データ（時間など）
+
+    plt.figure(figsize=(10, 6))
+    for trace_name in trace_names:
+        trace = raw.get_trace(trace_name)
+        ydata = trace.get_wave()  # Y軸データ
+        plt.plot(xdata, ydata, label=trace_name)
+
+    plt.title(f"Simulation Results for {os.path.basename(file)}")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Voltage (V)")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
